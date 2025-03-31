@@ -1,5 +1,3 @@
-# Triggering new deployment
-
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +9,7 @@ from user_agents import parse as parse_ua
 
 app = FastAPI()
 
+# Enable CORS (cross-origin for Webflow/PowerBI etc.)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,11 +20,13 @@ app.add_middleware(
 IPINFO_TOKEN = "8e738acc736b52"
 CSV_FILE = "visitors.csv"
 
+# Create CSV file with headers if it doesn't exist
 if not os.path.exists(CSV_FILE):
     with open(CSV_FILE, mode='w', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
         writer.writerow(["timestamp", "ip", "company", "city", "country", "url", "device"])
 
+# Get company/org data from IP using ipinfo.io
 def lookup_company(ip):
     try:
         res = requests.get(f"https://ipinfo.io/{ip}?token={IPINFO_TOKEN}")
@@ -38,6 +39,7 @@ def lookup_company(ip):
         print("IP Lookup failed:", e)
         return "", "", ""
 
+# API to track a visit
 @app.post("/track")
 async def track(request: Request):
     client_ip = request.client.host
@@ -56,14 +58,22 @@ async def track(request: Request):
 
     return {"status": "ok"}
 
+# API to return visitor data as CSV
 @app.get("/data")
 def get_csv():
+    if not os.path.exists(CSV_FILE):
+        return {"error": "No visitor data available yet."}
     return FileResponse(CSV_FILE, media_type='text/csv', filename='visitors.csv')
 
+# Health check
 @app.get("/")
 def root():
     return {"message": "Tracking backend is running."}
+
+# Local run support (optional but helpful)
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000)
+
+
 
